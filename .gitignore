@@ -23,6 +23,12 @@ Desktop.ini
 # Local .terraform directories
 **/.terraform/*
 
+# Terragrunt cache
+**/.terragrunt-cache/
+
+# Terragrunt debug logs
+.terragrunt-debug.log
+
 # .tfstate files
 *.tfstate
 *.tfstate.*
@@ -31,7 +37,8 @@ Desktop.ini
 crash.log
 crash.*.log
 
-# Exclude secret .tfvars files
+# Exclude .tfvars files
+*.tfvars
 *.tfvars.secret
 *.tfvars.json
 
