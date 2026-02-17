@@ -5,11 +5,11 @@ variable "zone_id" {
 
 variable "page_rules" {
   description = "Page rules to create"
-  type = list(object({
+  type = map(object({
     target   = string
     priority = optional(number, 1)
     status   = optional(string, "active")
     actions  = map(any)
   }))
-  default = []
+  default = {}
 }

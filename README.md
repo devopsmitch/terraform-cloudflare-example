@@ -52,6 +52,7 @@ export TF_VAR_cloudflare_api_token="your-token-here"
 │   ├── cloudflare-zone-settings/ # Configures zone settings (SSL, TLS, etc)
 │   └── cloudflare-page-rules/    # Manages page rules
 └── zones/
+    ├── common.hcl                # Common DNS records and zone settings
     ├── example.com/              # Example zone with DNS records and settings
     │   └── terragrunt.hcl        # Zone-specific configuration
     └── example.net/              # Example zone with page rule redirect
@@ -79,25 +80,26 @@ terraform {
   source = "../../_terraform/zone"
 }
 
-inputs = {
-  zone_name = "yourdomain.com"
-
-  ssl                      = "flexible"
-  always_use_https         = "on"
-  automatic_https_rewrites = "on"
-  min_tls_version          = "1.2"
-
-  dns_records = [
-    {
+locals {
+  common = read_terragrunt_config(find_in_parent_folders("common.hcl"))
+  zone_specific_records = {
+    root = {
       name    = "@"
       type    = "A"
       value   = "192.0.2.1"
       proxied = true
     }
-  ]
-
-  page_rules = []
+  }
 }
+
+inputs = merge(
+  local.common.locals.common_zone_settings,
+  {
+    zone_name   = "yourdomain.com"
+    dns_records = merge(local.common.locals.common_dns_records, local.zone_specific_records)
+    page_rules  = {}
+  }
+)
 ```
 
 3. Initialize and apply:
@@ -123,56 +125,67 @@ terragrunt run-all apply
 
 ### Managing DNS Records
 
-Edit the `dns_records` list in your zone's `terragrunt.hcl`:
+DNS records are defined as a map in your zone's `terragrunt.hcl`. Common records (like MX and SPF) are inherited from `zones/common.hcl`:
 
 ```hcl
-dns_records = [
-  {
+zone_specific_records = {
+  root = {
     name    = "@"
     type    = "A"
     value   = "192.0.2.1"
     proxied = true
-  },
-  {
+  }
+  www = {
     name    = "www"
     type    = "CNAME"
     value   = "example.com"
     proxied = true
-  },
-  {
+  }
+  mail_mx = {
     name     = "@"
     type     = "MX"
     value    = "mail.example.com"
     ttl      = 3600
     proxied  = false
     priority = 10
-  },
-  {
+  }
+  spf = {
     name    = "@"
     type    = "TXT"
-    value   = "v=spf1 include:_spf.example.com ~all"
+    value   = "\"v=spf1 include:_spf.example.com ~all\""
     ttl     = 3600
     proxied = false
   }
-]
+}
 ```
+
+The map keys (e.g., `root`, `www`, `mail_mx`) are identifiers - choose meaningful names.
 
 ### Configuring Zone Settings
 
-Modify settings in your zone's `terragrunt.hcl`:
+Zone settings are inherited from `zones/common.hcl` by default. To override for a specific zone, add them to the `merge()`:
 
 ```hcl
-ssl                      = "flexible"  # off, flexible, full, strict
-always_use_https         = "on"        # on, off
-automatic_https_rewrites = "on"        # on, off
-min_tls_version          = "1.2"       # 1.0, 1.1, 1.2, 1.3
+inputs = merge(
+  local.common.locals.common_zone_settings,
+  {
+    zone_name        = "yourdomain.com"
+    ssl              = "full"  # Override: off, flexible, full, strict
+    min_tls_version  = "1.3"   # Override: 1.0, 1.1, 1.2, 1.3
+    always_use_https = false   # Override: true, false
+    dns_records      = merge(...)
+    page_rules       = {}
+  }
+)
 ```
+
+Common settings are defined in `zones/common.hcl` and apply to all zones unless overridden.
 
 ### Adding Page Rules
 
 ```hcl
-page_rules = [
-  {
+page_rules = {
+  admin_bypass = {
     target   = "example.com/admin/*"
     priority = 1
     status   = "active"
@@ -180,7 +193,7 @@ page_rules = [
       cache_level = "bypass"
     }
   }
-]
+}
 ```
 
 ## Module Details
@@ -193,11 +206,11 @@ Parent module that orchestrates all sub-modules.
 - `zone_name` - DNS zone name
 - `plan` - Plan type (default: "free")
 - `ssl` - SSL mode (default: "flexible")
-- `always_use_https` - Force HTTPS (default: "on")
-- `automatic_https_rewrites` - Auto HTTPS rewrites (default: "on")
+- `always_use_https` - Force HTTPS (default: true)
+- `automatic_https_rewrites` - Auto HTTPS rewrites (default: true)
 - `min_tls_version` - Minimum TLS version (default: "1.2")
-- `dns_records` - List of DNS records (default: [])
-- `page_rules` - List of page rules (default: [])
+- `dns_records` - Map of DNS records (default: {})
+- `page_rules` - Map of page rules (default: {})
 
 **Outputs:**
 - `zone_id` - The zone ID
@@ -221,7 +234,7 @@ Manages DNS records for a zone.
 
 **Inputs:**
 - `zone_id` - The zone ID
-- `records` - List of DNS records
+- `records` - Map of DNS records
 
 **Outputs:**
 - `record_ids` - Map of record IDs
@@ -243,7 +256,7 @@ Manages page rules.
 
 **Inputs:**
 - `zone_id` - The zone ID
-- `page_rules` - List of page rules
+- `page_rules` - Map of page rules
 
 ## Best Practices
 

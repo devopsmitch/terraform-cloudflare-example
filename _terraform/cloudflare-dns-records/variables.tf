@@ -5,12 +5,13 @@ variable "zone_id" {
 
 variable "records" {
   description = "DNS records to create"
-  type = list(object({
-    name    = string
-    type    = string
-    value   = string
-    ttl     = optional(number, 1)
-    proxied = optional(bool, false)
+  type = map(object({
+    name     = string
+    type     = string
+    value    = string
+    ttl      = optional(number, 1)
+    proxied  = optional(bool, false)
+    priority = optional(number)
   }))
-  default = []
+  default = {}
 }
