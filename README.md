@@ -19,12 +19,6 @@ Manage multiple Cloudflare zones using Terragrunt with reusable Terraform module
 4. Name your bucket (e.g., `terraform-state`)
 5. Enable **Object versioning** for state rollback capability
 
-Or use the Wrangler CLI:
-
-```bash
-wrangler r2 bucket create terraform-state
-```
-
 ### Generating R2 API Tokens
 
 1. In the Cloudflare dashboard, navigate to **R2 Object Storage**
